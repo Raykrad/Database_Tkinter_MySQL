@@ -87,6 +87,21 @@ window.iconbitmap('c:/gui/ray.ico')
 window.geometry("600x400")
 window.configure(background='black')
 
+background = Image.open('c:/gui/i.jpg')
+bg_image = ImageTk.PhotoImage(background)
+bg_label = Label(window, image=bg_image)
+bg_label.place(relwidth=1, relheight=1)
+
+bg_canvas = Canvas(window, width=512, height=512, highlightthickness=0)
+bg_canvas.pack(fill="both", expand = True)
+
+def resizer(e):
+    global bg1, resized_bg, new_bg
+    bg1 = Image.open('c:/gui/i.jpg')
+    resized_bg = bg1.resize((e.width, e.height), Image.LANCZOS)
+    new_bg = ImageTk.PhotoImage(resized_bg)
+    bg_canvas.create_image(0, 0, image=new_bg, anchor='nw')
+
 class DBHelper:
     def delete_licenses():
         def delete():
@@ -366,29 +381,38 @@ class DBHelper:
                 required_columns = set(columns)
                 imported_columns = set(df.columns)
                 if required_columns != imported_columns:
-                    messagebox.showerror("Ошибка", f"Несоответствие столбцов в файле Excel.  Требуются столбцы: {required_columns}, а есть: {imported_columns}")
+                    messagebox.showerror("Ошибка", f"Несоответствие столбцов в файле Excel. Требуются столбцы: {required_columns}, а есть: {imported_columns}")
                     return
 
-                for col in columns:
-                    if col == "license_id":
-                        df[col] = df[col].astype(int)
+                df.fillna("", inplace=True)
+                
+                for col in ['license_id', 'software_id', 'user_id']:
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
 
                 for index, row in df.iterrows():
-                    license_id = row['license_id']
-                    software_id = row['software_id']
-                    user_id = row['user_id']
+                    print(f"Обработка строки {index}: {row}")
+                    try:
+                        license_id = row['license_id']
+                        software_id = row['software_id']
+                        user_id = row['user_id']
 
-                    cursor.execute("SELECT 1 FROM licenses WHERE license_id = %s", (license_id,))
-                    exists_license = cursor.fetchone()
-                    if exists_license:
-                        print(f"Запись с license_id {license_id} уже существует, пропускаем.")
-                        continue
+                        cursor.execute("SELECT 1 FROM licenses WHERE license_id = %s", (license_id,))
+                        exists_license = cursor.fetchone()
+                        if exists_license:
+                            print(f"Запись с license_id {license_id} уже существует, пропускаем.")
+                            continue
 
-                    cursor.execute("INSERT INTO software (software_id) VALUES (%s) ON DUPLICATE KEY UPDATE software_id = %s", (software_id, software_id))
-                    cursor.execute("INSERT INTO users (user_id) VALUES (%s) ON DUPLICATE KEY UPDATE user_id = %s", (user_id, user_id))
-                    values = tuple(row.values)
-                    sql = f"INSERT INTO licenses ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(columns))})"
-                    cursor.execute(sql, values)
+                        cursor.execute("INSERT INTO software (software_id) VALUES (%s) ON DUPLICATE KEY UPDATE software_id = %s", (software_id, software_id))
+                        cursor.execute("INSERT INTO users (user_id) VALUES (%s) ON DUPLICATE KEY UPDATE user_id = %s", (user_id, user_id))
+                        
+                        values = tuple(row.values)
+                        sql = f"INSERT INTO licenses ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(columns))})"
+                        print(f"SQL: {sql}, Values: {values}")
+                        cursor.execute(sql, values)
+                    except Exception as e:
+                        print(f"Ошибка в строке {index}: {e}")
+                        raise
 
                 db.commit()
                 refresh_tree()
@@ -614,7 +638,7 @@ class DBHelper:
                 image_window = Toplevel()
                 image_window.title("Изображение")
                 label = Label(image_window, image=photo)
-                label.image = photo  # Keep a reference!
+                label.image = photo
                 label.pack()
                 image_window.mainloop()
             except FileNotFoundError:
@@ -764,21 +788,21 @@ exit_button_img = create_oval_image("Выйти", font_size=16, bg_color="RGB(26
 exit_button = Button(window, image=exit_button_img, command=all_destroy, bg='black', activebackground='black', borderwidth=0, highlightthickness=2,)
 exit_button.place(relx=1, rely=0, anchor="ne")
 
-show_licenses_img = create_oval_image("Показать все лицензии", font_size=16, bg_color="RGB(66, 66, 66)", text_color="white")
+show_licenses_img = create_oval_image("Показать все лицензии", font_size=16, bg_color="RGB(36, 36, 36)", text_color="white")
 show_licenses_btn = Button(window, image=show_licenses_img, command=lambda: DBHelper.show_licenses(), bg='black', activebackground='black', borderwidth=0, highlightthickness=0)
-show_licenses_btn.place(relx=0.5, rely=0.3, anchor="center")
+show_licenses_btn.place(relx=0.5, rely=0.22, anchor="center")
 
-delete_license_img = create_oval_image("Удалить лицензию", font_size=16, bg_color="RGB(66, 66, 66)", text_color="white")
+delete_license_img = create_oval_image("Удалить лицензию", font_size=16, bg_color="RGB(36, 36, 36)", text_color="white")
 delete_license_btn = Button(window, image=delete_license_img, command=lambda: DBHelper.delete_licenses(), bg='black', activebackground='black', borderwidth=0, highlightthickness=0)
-delete_license_btn.place(relx=0.5, rely=0.45, anchor="center")
+delete_license_btn.place(relx=0.5, rely=0.37, anchor="center")
 
-add_license_img = create_oval_image("Добавить лицензию", font_size=16, bg_color="RGB(66, 66, 66)", text_color="white")
+add_license_img = create_oval_image("Добавить лицензию", font_size=16, bg_color="RGB(36, 36, 36)", text_color="white")
 add_license_btn = Button(window, image=add_license_img, command=lambda: DBHelper.add_licenses(), bg='black', activebackground='black', borderwidth=0, highlightthickness=0)
-add_license_btn.place(relx=0.5, rely=0.6, anchor="center")
+add_license_btn.place(relx=0.5, rely=0.52, anchor="center")
 
-update_license_img = create_oval_image("Обновить лицензию", font_size=16, bg_color="RGB(66, 66, 66)", text_color="white")
+update_license_img = create_oval_image("Обновить лицензию", font_size=16, bg_color="RGB(36, 36, 36)", text_color="white")
 update_license_btn = Button(window, image=update_license_img, command=lambda: DBHelper.update_licenses(), bg='black', activebackground='black', borderwidth=0, highlightthickness=0)
-update_license_btn.place(relx=0.5, rely=0.75, anchor="center")
+update_license_btn.place(relx=0.5, rely=0.67, anchor="center")
 
-window.bind('<Configure>')
+window.bind('<Configure>', resizer)
 window.mainloop()
